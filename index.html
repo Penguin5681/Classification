@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Digit Classifier</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #e0e0e0;
+      --muted: #666;
+      --highlight: #ffffff;
+      --green: #4ade80;
+      --red: #f87171;
+      --font: 'Inter', system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--accent);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+      gap: 32px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--highlight);
+    }
+
+    header p {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .card-title {
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--highlight);
+    }
+
+    /* Camera panel */
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #video-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .crosshair {
+      width: 80px;
+      height: 80px;
+      border: 1.5px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+    }
+
+    #camera-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    #camera-placeholder svg {
+      opacity: 0.3;
+    }
+
+    /* FPS control */
+    .fps-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .fps-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 80px;
+    }
+
+    #fps-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #fps-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--highlight);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    #fps-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    #fps-value {
+      font-size: 0.75rem;
+      color: var(--highlight);
+      min-width: 48px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button.primary {
+      flex: 1;
+      padding: 10px;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--highlight);
+      color: #000;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    button.primary:hover { opacity: 0.85; }
+    button.primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    button.ghost {
+      flex: 1;
+      padding: 10px;
+      font-size: 0.8rem;
+      letter-spacing: 0.06em;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    button.ghost:hover { border-color: var(--accent); }
+    button.ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Live badge */
+    .live-badge {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      margin-top: 10px;
+    }
+
+    .live-badge.visible { display: flex; }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Upload panel */
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 8px;
+      padding: 40px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); }
+
+    .drop-zone input { display: none; }
+
+    .drop-zone-icon { opacity: 0.25; margin-bottom: 10px; }
+
+    .drop-zone p {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .drop-zone p span {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    #preview-img {
+      width: 100%;
+      border-radius: 8px;
+      display: none;
+      margin-top: 14px;
+      max-height: 260px;
+      object-fit: contain;
+      background: #000;
+    }
+
+    /* Result card */
+    .result-card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      display: none;
+    }
+
+    .result-card.visible { display: block; }
+
+    .result-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .result-digit {
+      font-size: 4rem;
+      font-weight: 600;
+      color: var(--highlight);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .result-meta {
+      text-align: right;
+    }
+
+    .result-conf {
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: var(--green);
+      line-height: 1;
+    }
+
+    .result-conf-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 4px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* Probability bars */
+    .prob-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .prob-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .prob-bar-track {
+      width: 100%;
+      height: 48px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    .prob-bar-fill {
+      width: 100%;
+      background: var(--border);
+      border-radius: 4px 4px 0 0;
+      transition: height 0.3s ease;
+    }
+
+    .prob-bar-fill.top { background: var(--green); }
+
+    .prob-digit-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    .prob-pct-label {
+      font-size: 0.6rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Status */
+    #status {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 18px;
+      letter-spacing: 0.04em;
+    }
+
+    #status.error { color: var(--red); }
+    #status.loading { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>DIGIT CLASSIFIER</h1>
+    <p>CNN · MNIST · FastAPI</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('camera')">Camera</button>
+    <button class="tab-btn" onclick="switchTab('upload')">Upload</button>
+  </div>
+
+  <!-- Camera Card -->
+  <div class="card" id="panel-camera">
+    <div class="card-title">Live Feed</div>
+
+    <div class="video-wrapper">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="capture-canvas" style="display:none;"></canvas>
+      <div id="video-overlay"><div class="crosshair"></div></div>
+      <div id="camera-placeholder">
+        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Camera not started
+      </div>
+    </div>
+
+    <!-- FPS Control -->
+    <div class="fps-row">
+      <span class="fps-label">Predict FPS</span>
+      <input type="range" id="fps-slider" min="0.5" max="10" step="0.5" value="2" oninput="updateFPS(this.value)">
+      <span id="fps-value">2.0 fps</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="primary" id="btn-start-cam" onclick="startCamera()">Start Camera</button>
+      <button class="ghost" id="btn-stop-cam" onclick="stopCamera()" disabled>Stop</button>
+    </div>
+
+    <div class="live-badge" id="live-badge">
+      <div class="live-dot"></div> LIVE PREDICTION
+    </div>
+  </div>
+
+  <!-- Upload Card -->
+  <div class="card" id="panel-upload" style="display:none;">
+    <div class="card-title">Upload Image</div>
+
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <input type="file" id="file-input" accept="image/*" onchange="handleFileSelect(event)">
+      <div class="drop-zone-icon">
+        <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <p>Drop image here or <span>browse</span><br>PNG, JPG, WEBP supported</p>
+    </div>
+
+    <img id="preview-img" alt="Preview" />
+
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="primary" id="btn-predict-upload" onclick="predictUpload()" disabled>Classify</button>
+      <button class="ghost" onclick="clearUpload()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Result Card -->
+  <div class="result-card" id="result-card">
+    <div class="card-title">Prediction</div>
+    <div class="result-main">
+      <div class="result-digit" id="result-digit">—</div>
+      <div class="result-meta">
+        <div class="result-conf" id="result-conf">—</div>
+        <div class="result-conf-label">Confidence</div>
+      </div>
+    </div>
+    <div class="prob-grid" id="prob-grid"></div>
+  </div>
+
+  <div id="status"></div>
+
+  <script>
+    const API_BASE = 'http://34.131.31.114:8000';
+
+    /* ── State ─────────────────────────────────────── */
+    let stream = null;
+    let liveInterval = null;
+    let fpsPeriod = 500; // ms between predictions (default 2fps)
+    let uploadFile = null;
+    let isPredicting = false;
+
+    /* ── Tabs ──────────────────────────────────────── */
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', (i === 0 && tab === 'camera') || (i === 1 && tab === 'upload'));
+      });
+      document.getElementById('panel-camera').style.display = tab === 'camera' ? 'block' : 'none';
+      document.getElementById('panel-upload').style.display = tab === 'upload' ? 'block' : 'none';
+      if (tab === 'upload') stopCamera();
+    }
+
+    /* ── FPS ───────────────────────────────────────── */
+    function updateFPS(val) {
+      const fps = parseFloat(val);
+      document.getElementById('fps-value').textContent = fps.toFixed(1) + ' fps';
+      fpsPeriod = Math.round(1000 / fps);
+      if (liveInterval) {
+        clearInterval(liveInterval);
+        liveInterval = setInterval(predictFromCamera, fpsPeriod);
+      }
+    }
+
+    /* ── Camera ────────────────────────────────────── */
+    async function startCamera() {
+      setStatus('Requesting camera access…', 'loading');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        document.getElementById('camera-placeholder').style.display = 'none';
+        document.getElementById('video-overlay').style.display = 'flex';
+        document.getElementById('btn-start-cam').disabled = true;
+        document.getElementById('btn-stop-cam').disabled = false;
+        document.getElementById('live-badge').classList.add('visible');
+        setStatus('');
+        liveInterval = setInterval(predictFromCamera, fpsPeriod);
+      } catch (e) {
+        setStatus('Camera access denied: ' + e.message, 'error');
+      }
+    }
+
+    function stopCamera() {
+      if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      const video = document.getElementById('video');
+      video.srcObject = null;
+      document.getElementById('camera-placeholder').style.display = 'flex';
+      document.getElementById('btn-start-cam').disabled = false;
+      document.getElementById('btn-stop-cam').disabled = true;
+      document.getElementById('live-badge').classList.remove('visible');
+      setStatus('');
+    }
+
+    async function predictFromCamera() {
+      if (isPredicting) return;
+      const video = document.getElementById('video');
+      if (!video.videoWidth) return;
+
+      const canvas = document.getElementById('capture-canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        isPredicting = true;
+        try {
+          const formData = new FormData();
+          formData.append('file', blob, 'frame.jpg');
+          const resp = await fetch(`${API_BASE}/predict`, { method: 'POST', body: formData });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          renderResult(data);
+          setStatus('');
+        } catch (e) {
+          setStatus('Prediction error: ' + e.message, 'error');
+        } finally {
+          isPredicting = false;
+        }
+      }, 'image/jpeg', 0.85);
+    }
+
+    /* ── Upload ────────────────────────────────────── */
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.add('drag-over');
+    }
+
+    function handleDragLeave() {
+      document.getElementById('drop-zone').classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('drop-zone').classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) loadUploadFile(file);
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) loadUploadFile(file);
+    }
+
+    function loadUploadFile(file) {
+      uploadFile = file;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = document.getElementById('preview-img');
+        img.src = ev.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      document.getElementById('btn-predict-upload').disabled = false;
+      setStatus('');
+    }
+
+    function clearUpload() {
+      uploadFile = null;
+      document.getElementById('preview-img').style.display = 'none';
+      document.getElementById('preview-img').src = '';
+      document.getElementById('file-input').value = '';
+      document.getElementById('btn-predict-upload').disabled = true;
+      document.getElementById('result-card').classList.remove('visible');
+      setStatus('');
+    }
+
+    async function predictUpload() {
+      if (!uploadFile) return;
+      setStatus('Classifying…', 'loading');
+      document.getElementById('btn-predict-upload').disabled = true;
+      try {
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+        const resp = await fetch(`${API_BASE}/predict`, { method: 'POST', body: formData });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        renderResult(data);
+        setStatus('');
+      } catch (e) {
+        setStatus('Error: ' + e.message, 'error');
+      } finally {
+        document.getElementById('btn-predict-upload').disabled = false;
+      }
+    }
+
+    /* ── Result rendering ──────────────────────────── */
+    function renderResult(data) {
+      document.getElementById('result-card').classList.add('visible');
+      document.getElementById('result-digit').textContent = data.digit;
+      const pct = (data.confidence * 100).toFixed(1) + '%';
+      document.getElementById('result-conf').textContent = pct;
+
+      const grid = document.getElementById('prob-grid');
+      grid.innerHTML = '';
+      const probs = data.all_probabilities;
+      const maxP = Math.max(...probs);
+
+      probs.forEach((p, i) => {
+        const isTop = p === maxP;
+        const heightPct = Math.round(p * 100);
+        const item = document.createElement('div');
+        item.className = 'prob-item';
+        item.innerHTML = `
+          <div class="prob-bar-track">
+            <div class="prob-bar-fill ${isTop ? 'top' : ''}" style="height:${heightPct}%"></div>
+          </div>
+          <div class="prob-digit-label">${i}</div>
+          <div class="prob-pct-label">${(p * 100).toFixed(0)}%</div>`;
+        grid.appendChild(item);
+      });
+    }
+
+    /* ── Status ────────────────────────────────────── */
+    function setStatus(msg, type = '') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = type;
+    }
+  </script>
+</body>
+</html>
