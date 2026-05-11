@@ -1,10 +1,15 @@
-const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
 const port = 4173;
 
-const server = http.createServer((req, res) => {
+const options = {
+  key: fs.readFileSync('server.key'),
+  cert: fs.readFileSync('server.cert')
+};
+
+const server = https.createServer(options, (req, res) => {
   const filePath = path.join(__dirname, 'index.html');
 
   fs.readFile(filePath, (err, content) => {
@@ -24,5 +29,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}/`);
+  console.log(`Server running at https://localhost:${port}/`);
 });
